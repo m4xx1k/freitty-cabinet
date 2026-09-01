@@ -75,9 +75,12 @@ export function needAttention(orders: { node: OrderNode; alerts: Alert[] }[]) {
       alerting.push(node.number);
       continue;
     }
-    // A draft is not submitted yet, and an unexplained delta needs confirming:
-    // in both cases the next move is the client's.
-    if (node.status === "DRAFT" || alerts.some((a) => a.code === "QTY_DELTA")) {
+    // A draft is not submitted yet, an unexplained delta needs confirming, and a
+    // truck that never turned up needs rebooking: in each case the next move is
+    // the client's. Leaving OVERDUE out would hide the most urgent alert there
+    // is from the very tile that exists to surface it.
+    const needsClient = alerts.some((a) => a.code === "QTY_DELTA" || a.code === "OVERDUE");
+    if (node.status === "DRAFT" || needsClient) {
       awaitingAction++;
     }
   }

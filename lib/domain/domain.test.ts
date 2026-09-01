@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { alertsFor, needAttention } from "./alerts";
-import { orderTotals, priceOf } from "./pricing";
+import { billedLines, orderTotals, priceOf } from "./pricing";
 import { quantities, refNumbers, trailerCount } from "./quantities";
 import type { OperationInput, OrderNode, PriceRuleInput } from "./types";
 
@@ -13,9 +13,13 @@ const op = (o: Partial<OperationInput> & Pick<OperationInput, "kind" | "qty">): 
   ...o,
 });
 
+const MARKHAM = "hub-markham";
+const TORONTO = "hub-toronto";
+
 const order = (o: Partial<OrderNode> & Pick<OrderNode, "number">): OrderNode => ({
   status: "IN_PROGRESS",
   scheduledAt: new Date("2026-04-17T08:00:00Z"),
+  hubId: MARKHAM,
   cargoLines: [],
   operations: [],
   ...o,
@@ -110,6 +114,21 @@ describe("quantities", () => {
     expect(quantities(awaiting).delta).toBe(0);
   });
 
+  it("holds the delta back while a consolidation is still being unloaded", () => {
+    // Only the first of three sub-orders is off the trailer. Comparing 9 against
+    // all 27 declared would report Δ −18 and alert on a perfectly healthy order.
+    const halfDone: OrderNode = {
+      ...fr001676,
+      children: fr001676.children!.map((child, i) =>
+        i === 0 ? child : { ...child, operations: [] },
+      ),
+    };
+    const q = quantities(halfDone);
+    expect(q.actual).toBe(9);
+    expect(q.delta).toBe(0);
+    expect(alertsFor(halfDone)).toEqual([]);
+  });
+
   it("takes ref numbers from the leaves and trailers from the log", () => {
     expect(refNumbers(fr001676)).toEqual(["REF-1001", "REF-1003", "REF-1002"]);
     expect(refNumbers(fr001383)).toEqual(["REF-1012"]);
@@ -157,21 +176,38 @@ describe("alerts", () => {
       alerting: ["FR001674"],
     });
   });
+
+  it("counts an overdue order as needing attention", () => {
+    // The truck never came: the most urgent thing in the system must not be the
+    // one alert the attention tile ignores.
+    const stood_up = order({
+      number: "FR001690",
+      status: "READY",
+      scheduledAt: new Date("2026-04-10T09:00:00Z"),
+      cargoLines: [{ unitType: "STANDARD_48X40", declaredQty: 8 }],
+    });
+    const now = new Date("2026-04-17T09:00:00Z");
+    const tile = needAttention([{ node: stood_up, alerts: alertsFor(stood_up, now) }]);
+    expect(tile.total).toBe(1);
+    expect(tile.awaitingAction).toBe(1);
+  });
 });
 
 describe("pricing", () => {
   const rules: PriceRuleInput[] = [
-    { hubId: null, operationKind: "UNLOADING", unitType: "STANDARD_48X40", platformCents: 450 },
-    { hubId: null, operationKind: "DISPOSAL", unitType: "STANDARD_48X40", platformCents: 1200 },
-    { hubId: null, operationKind: "RESTACK", unitType: "STANDARD_48X40", platformCents: 350 },
-    { hubId: null, operationKind: "LOADING", unitType: "STANDARD_48X40", platformCents: 400 },
-    { hubId: "hub-markham", operationKind: "UNLOADING", unitType: "STANDARD_48X40", platformCents: 500 },
+    { hubId: MARKHAM, operationKind: "UNLOADING", unitType: "STANDARD_48X40", platformCents: 450 },
+    { hubId: MARKHAM, operationKind: "UNLOADING", unitType: "XL", platformCents: 650 },
+    { hubId: MARKHAM, operationKind: "DISPOSAL", unitType: "STANDARD_48X40", platformCents: 1200 },
+    { hubId: MARKHAM, operationKind: "RESTACK", unitType: "STANDARD_48X40", platformCents: 350 },
+    { hubId: MARKHAM, operationKind: "LOADING", unitType: "STANDARD_48X40", platformCents: 400 },
+    { hubId: TORONTO, operationKind: "UNLOADING", unitType: "STANDARD_48X40", platformCents: 405 },
   ];
 
-  it("prefers a hub tariff over the global one", () => {
-    expect(priceOf(rules, "UNLOADING", "STANDARD_48X40")).toBe(450);
-    expect(priceOf(rules, "UNLOADING", "STANDARD_48X40", "hub-markham")).toBe(500);
-    expect(priceOf(rules, "UNLOADING", "XL")).toBe(0);
+  it("prices each hub from its own tariff", () => {
+    expect(priceOf(rules, "UNLOADING", "STANDARD_48X40", MARKHAM)).toBe(450);
+    expect(priceOf(rules, "UNLOADING", "STANDARD_48X40", TORONTO)).toBe(405);
+    // No rule entered for that combination: the line is free rather than fatal.
+    expect(priceOf(rules, "UNLOADING", "XL", TORONTO)).toBe(0);
   });
 
   it("bills the operation log and leaves non-billable lines out", () => {
@@ -184,6 +220,30 @@ describe("pricing", () => {
   });
 
   it("bills a consolidation across its sub-orders", () => {
-    expect(orderTotals(fr001676, rules).operationsCents).toBe(9 * 450 + 6 * 450);
+    expect(orderTotals(fr001676, rules).operationsCents).toBe(9 * 450 + 6 * 450 + 12 * 650);
+  });
+
+  it("prices a sub-order handled at another hub by that hub's tariff", () => {
+    // Pricing the child by its parent's hub is the divergence that would let a
+    // dashboard total and an order's own total disagree with nobody noticing.
+    const split = order({
+      number: "FR001700",
+      children: [
+        order({
+          number: "FR001700-1",
+          hubId: TORONTO,
+          cargoLines: [{ unitType: "STANDARD_48X40", declaredQty: 10 }],
+          operations: [op({ kind: "UNLOADING", qty: 10 })],
+        }),
+      ],
+    });
+    expect(orderTotals(split, rules).operationsCents).toBe(10 * 405);
+  });
+
+  it("dates every billed line so a spend series can bucket it", () => {
+    const lines = billedLines(fr001383, rules, new Date("2026-04-17T12:00:00Z"));
+    expect(lines).toHaveLength(3 + 3); // three billable operations, three supplies
+    expect(lines.every((l) => l.at instanceof Date)).toBe(true);
+    expect(lines.reduce((s, l) => s + l.cents, 0)).toBe(orderTotals(fr001383, rules).grandCents);
   });
 });

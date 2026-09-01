@@ -25,17 +25,12 @@ function at(daysAgo: number, hours = 9, minutes = 0): Date {
   return d;
 }
 
-// Deterministic PRNG so a re-seed produces the same database.
-function rng(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const rand = rng(1383);
+// A textbook linear congruential generator, so filler orders vary but a re-seed
+// rebuilds exactly the same database. The quality of the randomness is beside
+// the point here; being repeatable is the whole requirement.
+const MODULUS = 2 ** 31;
+let seed = 1383;
+const rand = () => (seed = (seed * 1103515245 + 12345) % MODULUS) / MODULUS;
 const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)];
 const between = (lo: number, hi: number) => lo + Math.floor(rand() * (hi - lo + 1));
 
@@ -104,18 +99,29 @@ async function main() {
   // ── price book ──────────────────────────────────────────────────────────
   // The mockup masks every amount as $1, so the tariff is invented — but it
   // lives in the database, and the client only ever sees platformCents.
+  // Each hub prices its own labour; Toronto runs a little cheaper than Markham.
+  const tariff = [
+    { operationKind: "UNLOADING" as const, unitType: "STANDARD_48X40" as const, platformCents: 450, partnerCents: 300 },
+    { operationKind: "UNLOADING" as const, unitType: "XL" as const, platformCents: 650, partnerCents: 430 },
+    { operationKind: "LOADING" as const, unitType: "STANDARD_48X40" as const, platformCents: 400, partnerCents: 265 },
+    { operationKind: "LOADING" as const, unitType: "XL" as const, platformCents: 600, partnerCents: 400 },
+    { operationKind: "DISPOSAL" as const, unitType: "STANDARD_48X40" as const, platformCents: 1200, partnerCents: 800 },
+    { operationKind: "DISPOSAL" as const, unitType: "XL" as const, platformCents: 1800, partnerCents: 1200 },
+    { operationKind: "RESTACK" as const, unitType: "STANDARD_48X40" as const, platformCents: 350, partnerCents: 230 },
+    { operationKind: "RESTACK" as const, unitType: "XL" as const, platformCents: 500, partnerCents: 330 },
+    { operationKind: "STORAGE" as const, unitType: "STANDARD_48X40" as const, platformCents: 200, partnerCents: 130 },
+    { operationKind: "STORAGE" as const, unitType: "XL" as const, platformCents: 300, partnerCents: 200 },
+  ];
+
   await prisma.priceRule.createMany({
     data: [
-      { operationKind: "UNLOADING", unitType: "STANDARD_48X40", platformCents: 450, partnerCents: 300 },
-      { operationKind: "UNLOADING", unitType: "XL", platformCents: 650, partnerCents: 430 },
-      { operationKind: "LOADING", unitType: "STANDARD_48X40", platformCents: 400, partnerCents: 265 },
-      { operationKind: "LOADING", unitType: "XL", platformCents: 600, partnerCents: 400 },
-      { operationKind: "DISPOSAL", unitType: "STANDARD_48X40", platformCents: 1200, partnerCents: 800 },
-      { operationKind: "DISPOSAL", unitType: "XL", platformCents: 1800, partnerCents: 1200 },
-      { operationKind: "RESTACK", unitType: "STANDARD_48X40", platformCents: 350, partnerCents: 230 },
-      { operationKind: "RESTACK", unitType: "XL", platformCents: 500, partnerCents: 330 },
-      { operationKind: "STORAGE", unitType: "STANDARD_48X40", platformCents: 200, partnerCents: 130 },
-      { operationKind: "STORAGE", unitType: "XL", platformCents: 300, partnerCents: 200 },
+      ...tariff.map((rule) => ({ ...rule, hubId: markham.id })),
+      ...tariff.map((rule) => ({
+        ...rule,
+        hubId: toronto.id,
+        platformCents: Math.round(rule.platformCents * 0.9),
+        partnerCents: Math.round(rule.partnerCents * 0.9),
+      })),
     ],
   });
 
@@ -548,8 +554,15 @@ async function main() {
       cargoHolders.push({ id: order.id, qty });
     }
 
-    const trailer = `TRL-${between(6000, 8999)}`;
-    for (const holder of cargoHolders) {
+    // A READY order is still expected: the truck has not arrived, so there is
+    // nothing in the log yet and its quantity is whatever the BOL declares.
+    const arrived = opts.status !== "READY";
+
+    // Each sub-order came in on its own trailer — that is what consolidating is:
+    // several trailers in, one out. Sharing a number would leave the
+    // "N consolidated" chip permanently reading 1.
+    for (const [index, holder] of arrived ? cargoHolders.entries() : []) {
+      const trailer = `TRL-${between(6000, 8999) + index}`;
       await prisma.operation.create({
         data: {
           orderId: holder.id,

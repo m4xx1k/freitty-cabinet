@@ -37,11 +37,21 @@ export function quantities(node: OrderNode): Quantities {
   const unloaded = sumOf("UNLOADING");
   const disposed = sumOf("DISPOSAL");
 
+  // A delta only means something once the count is complete. Half-unloaded, a
+  // consolidation would otherwise report every pallet still on the truck as
+  // missing: three sub-orders declaring 9 + 6 + 12 with only the first one off
+  // the trailer would read as Δ −18 and raise an alert on a healthy order.
+  const counted = nodes.every(
+    (n) =>
+      n.cargoLines.length === 0 ||
+      (n.children?.length ?? 0) > 0 ||
+      n.operations.some((op) => op.kind === "UNLOADING"),
+  );
+
   return {
     declared,
     actual: unloaded,
-    // Before anything is unloaded there is no counted quantity, so no delta either.
-    delta: unloaded === 0 ? 0 : unloaded - declared,
+    delta: counted && unloaded > 0 ? unloaded - declared : 0,
     shippable: unloaded - disposed,
     declaredByUnit,
   };

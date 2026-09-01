@@ -52,7 +52,7 @@ export interface OrderNode {
 }
 
 export interface PriceRuleInput {
-  hubId: string | null;
+  hubId: string;
   operationKind: OperationKind;
   unitType: UnitType;
   platformCents: number;

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { alertsFor, needAttention } from "@/lib/domain/alerts";
-import { priceOf } from "@/lib/domain/pricing";
+import { billedLines } from "@/lib/domain/pricing";
 import { ACTIVE_STATUSES } from "@/lib/domain/types";
 import { toOrderCard } from "@/lib/dto/order";
 import { loadPriceRules, orderInclude, toNode } from "@/lib/services/orders";
@@ -48,27 +48,12 @@ export async function getDashboard(query: DashboardQuery, now: Date = new Date()
   const completed30 = closedBetween(daysAgo(now, 30), now);
   const completedPrev30 = closedBetween(daysAgo(now, 60), daysAgo(now, 30));
 
-  // Money is recomputed from the log every time; nothing is stored.
-  const spendOf = (row: (typeof rows)[number]) => {
-    const all = [row, ...row.children];
-    const ops = all.flatMap((o) =>
-      o.operations
-        .filter((op) => op.billable)
-        .map((op) => ({
-          at: op.appliedAt,
-          cents: op.qty * priceOf(rules, op.kind, op.unitType, row.hubId),
-        })),
-    );
-    const supplies = all.flatMap((o) =>
-      o.supplies.map((s) => ({
-        at: row.closedAt ?? row.scheduledAt,
-        cents: s.qty * s.unitPriceCents,
-      })),
-    );
-    return [...ops, ...supplies];
-  };
-
-  const spendLines = rows.flatMap(spendOf);
+  // Money is recomputed from the log every time; nothing is stored. It goes
+  // through the same billedLines the detail totals use, so the dashboard and an
+  // order's own page can never disagree about what something cost.
+  const spendLines = nodes.flatMap(({ row, node }) =>
+    billedLines(node, rules, row.closedAt ?? row.scheduledAt),
+  );
   const spendIn = (from: Date, to: Date) =>
     spendLines.filter((l) => l.at >= from && l.at < to).reduce((s, l) => s + l.cents, 0);
 

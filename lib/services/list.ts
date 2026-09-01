@@ -17,12 +17,18 @@ export const listQuery = z.object({
 
 export type ListQuery = z.infer<typeof listQuery>;
 
-const DAYS: Record<Exclude<ListQuery["period"], "all">, number> = { today: 1, "7d": 7, "30d": 30 };
-
 function since(period: ListQuery["period"], now: Date): Date | null {
   if (period === "all") return null;
+
   const d = new Date(now);
-  d.setDate(d.getDate() - DAYS[period]);
+  if (period === "today") {
+    // A calendar day, not a rolling 24 hours: "Today" must not keep showing
+    // yesterday evening's slot all afternoon.
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  d.setDate(d.getDate() - (period === "7d" ? 7 : 30));
   return d;
 }
 
@@ -60,12 +66,24 @@ export async function listOrders(query: ListQuery, now: Date = new Date()) {
       ...(cutoff
         ? { OR: [{ scheduledAt: { gte: cutoff } }, { closedAt: { gte: cutoff } }] }
         : {}),
+      // Search hits anything the cards show: the order's own number and ref, and
+      // both of those on its sub-orders — the ref list puts FR001676-2 on screen,
+      // so pasting it back must find the order it belongs to.
       ...(query.q
         ? {
             OR: [
               { number: { contains: query.q, mode: "insensitive" as const } },
               { refNumber: { contains: query.q, mode: "insensitive" as const } },
-              { children: { some: { refNumber: { contains: query.q, mode: "insensitive" as const } } } },
+              {
+                children: {
+                  some: {
+                    OR: [
+                      { number: { contains: query.q, mode: "insensitive" as const } },
+                      { refNumber: { contains: query.q, mode: "insensitive" as const } },
+                    ],
+                  },
+                },
+              },
             ],
           }
         : {}),

@@ -251,10 +251,15 @@ model Operation {
 
 // Tariffs live in the database, not in code: a hardcoded price makes every old
 // invoice wrong the day it changes.
+// Every rule belongs to a hub. A nullable hubId standing for "applies
+// everywhere" reads well but cannot be constrained: Postgres treats NULLs as
+// distinct, so two global tariffs for the same operation would both insert and
+// the lookup would silently pick whichever row came back first. Hubs price
+// their own labour anyway.
 model PriceRule {
   id            String        @id @default(cuid())
-  hubId         String? // null = applies to every hub
-  hub           Hub?          @relation(fields: [hubId], references: [id])
+  hubId         String
+  hub           Hub           @relation(fields: [hubId], references: [id])
   operationKind OperationKind
   unitType      UnitType
   platformCents Int // what the client is charged — the only price the API returns

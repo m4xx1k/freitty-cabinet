@@ -18,6 +18,9 @@ const TABS = [
   { key: "cross-dock", label: "Cross-Dock" },
   { key: "consolidation", label: "Consolidation" },
   { key: "alerts", label: "Alerts" },
+  // Not a duplicate of Alerts: this is the set the dashboard tile counts, and it
+  // includes a draft, which has no operations and so can carry no alert.
+  { key: "attention", label: "Need Attention" },
   { key: "drafts", label: "Drafts" },
 ] as const;
 
@@ -95,7 +98,7 @@ export function OrdersView() {
             onClick={() => update({ tab: t.key === "all" ? undefined : t.key })}
           >
             {t.label}
-            <span className={`count${t.key === "alerts" ? " alert" : ""}`}>
+            <span className={`count${t.key === "alerts" || t.key === "attention" ? " alert" : ""}`}>
               {data?.counts[t.key] ?? "·"}
             </span>
           </button>

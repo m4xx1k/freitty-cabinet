@@ -1,5 +1,5 @@
 import { quantities } from "./quantities";
-import { type OrderNode, walk } from "./types";
+import { type OrderNode, type OrderStatus, walk } from "./types";
 
 // An alert is not a status. It sits alongside one, an order can carry several
 // at once, and it is computed on read — never written to a column.
@@ -61,6 +61,27 @@ export function alertsFor(node: OrderNode, now: Date = new Date()): Alert[] {
 }
 
 /**
+ * Is the next move the client's?
+ *
+ * A draft is not submitted yet, an unexplained delta needs confirming, a truck
+ * that never turned up needs rebooking, and a missing photo needs uploading.
+ * Leaving OVERDUE out would hide the most urgent alert there is from the very
+ * tile that exists to surface it.
+ *
+ * One predicate, exported, because the dashboard tile and the list tab behind
+ * its link count the same orders — two copies of this rule would eventually
+ * disagree and the link would promise a number the list does not show.
+ */
+export function needsClientAttention(order: { status: OrderStatus; alerts: Alert[] }): boolean {
+  return (
+    order.status === "DRAFT" ||
+    order.alerts.some(
+      (a) => a.clientActionable || a.code === "QTY_DELTA" || a.code === "OVERDUE",
+    )
+  );
+}
+
+/**
  * The Need Attention tile. An order lands in exactly one bucket, otherwise the
  * one order with both a delta and a missing photo would be counted twice.
  */
@@ -70,17 +91,12 @@ export function needAttention(orders: { node: OrderNode; alerts: Alert[] }[]) {
   const alerting: string[] = [];
 
   for (const { node, alerts } of orders) {
+    if (!needsClientAttention({ status: node.status, alerts })) continue;
+
     if (alerts.some((a) => a.clientActionable)) {
       activeAlerts++;
       alerting.push(node.number);
-      continue;
-    }
-    // A draft is not submitted yet, an unexplained delta needs confirming, and a
-    // truck that never turned up needs rebooking: in each case the next move is
-    // the client's. Leaving OVERDUE out would hide the most urgent alert there
-    // is from the very tile that exists to surface it.
-    const needsClient = alerts.some((a) => a.code === "QTY_DELTA" || a.code === "OVERDUE");
-    if (node.status === "DRAFT" || needsClient) {
+    } else {
       awaitingAction++;
     }
   }

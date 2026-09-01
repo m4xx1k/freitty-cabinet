@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
+import { needsClientAttention } from "@/lib/domain/alerts";
 import { toOrderCard, type OrderCard } from "@/lib/dto/order";
 import { orderInclude } from "@/lib/services/orders";
 
 export const listQuery = z.object({
-  tab: z.enum(["all", "cross-dock", "consolidation", "alerts", "drafts"]).default("all"),
+  tab: z.enum(["all", "cross-dock", "consolidation", "alerts", "attention", "drafts"]).default("all"),
   hub: z.string().optional(),
   status: z
     .enum(["DRAFT", "READY", "IN_PROGRESS", "CONSOLIDATED", "IN_TRANSIT", "DECONSOLIDATED", "CLOSED"])
@@ -40,6 +41,10 @@ const matchesTab = (card: OrderCard, tab: ListQuery["tab"]) => {
       return card.type === "CONSOLIDATION";
     case "alerts":
       return card.alerts.length > 0;
+    // Not the same set as "alerts": a draft carries no alert — it has no
+    // operations to raise one — but the next move on it is still the client's.
+    case "attention":
+      return needsClientAttention(card);
     case "drafts":
       return card.status === "DRAFT";
     default:
@@ -99,6 +104,7 @@ export async function listOrders(query: ListQuery, now: Date = new Date()) {
     "cross-dock": cards.filter((c) => matchesTab(c, "cross-dock")).length,
     consolidation: cards.filter((c) => matchesTab(c, "consolidation")).length,
     alerts: cards.filter((c) => matchesTab(c, "alerts")).length,
+    attention: cards.filter((c) => matchesTab(c, "attention")).length,
     drafts: cards.filter((c) => matchesTab(c, "drafts")).length,
   };
 

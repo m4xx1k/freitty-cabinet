@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alertsFor, needAttention } from "./alerts";
+import { alertsFor, needAttention, needsClientAttention } from "./alerts";
 import { billedLines, orderTotals, priceOf } from "./pricing";
 import { quantities, refNumbers, trailerCount } from "./quantities";
 import type { OperationInput, OrderNode, PriceRuleInput } from "./types";
@@ -175,6 +175,26 @@ describe("alerts", () => {
       activeAlerts: 1,
       alerting: ["FR001674"],
     });
+  });
+
+  it("puts the same orders in the tile and in the tab the tile links to", () => {
+    // The dashboard tile is a link. A draft has no operations and so can carry
+    // no alert, which is exactly why "any order with an alert" is the wrong set
+    // to send someone to: the tile would promise three and the list show two.
+    const draft = order({ number: "DRAFT-003", status: "DRAFT" });
+    const withAlerts = [fr001383, fr001674, fr001676, draft].map((node) => ({
+      node,
+      alerts: alertsFor(node),
+    }));
+
+    const inTab = withAlerts.filter((o) =>
+      needsClientAttention({ status: o.node.status, alerts: o.alerts }),
+    );
+
+    expect(inTab.map((o) => o.node.number)).toEqual(["FR001383", "FR001674", "DRAFT-003"]);
+    expect(inTab).toHaveLength(needAttention(withAlerts).total);
+    // …and it is deliberately not the same set as the Alerts tab.
+    expect(withAlerts.filter((o) => o.alerts.length > 0)).toHaveLength(2);
   });
 
   it("counts an overdue order as needing attention", () => {

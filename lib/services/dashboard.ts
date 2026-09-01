@@ -51,11 +51,19 @@ export async function getDashboard(query: DashboardQuery, now: Date = new Date()
   // Money is recomputed from the log every time; nothing is stored. It goes
   // through the same billedLines the detail totals use, so the dashboard and an
   // order's own page can never disagree about what something cost.
-  const spendLines = nodes.flatMap(({ row, node }) =>
+  const perOrder = nodes.map(({ row, node }) =>
     billedLines(node, rules, row.closedAt ?? row.scheduledAt),
   );
+  const spendLines = perOrder.flat();
   const spendIn = (from: Date, to: Date) =>
     spendLines.filter((l) => l.at >= from && l.at < to).reduce((s, l) => s + l.cents, 0);
+
+  // Kept per order as well as flat, because the average needs the same
+  // population above and below the line: total spend over the count of *closed*
+  // orders puts an active order's unloading in the numerator and nothing in the
+  // denominator, and reports a figure no order ever cost.
+  const ordersBilledIn = (from: Date, to: Date) =>
+    perOrder.filter((lines) => lines.some((l) => l.at >= from && l.at < to)).length;
 
   const series = buckets(query.period, now).map((b) => ({
     key: b.key,
@@ -66,6 +74,7 @@ export async function getDashboard(query: DashboardQuery, now: Date = new Date()
 
   const attention = needAttention(nodes.map((n) => ({ node: n.node, alerts: n.alerts })));
   const spend30 = spendIn(daysAgo(now, 30), now);
+  const billed30 = ordersBilledIn(daysAgo(now, 30), now);
   const bestWeek = series.reduce((best, b) => (b.spendCents > best.spendCents ? b : best), series[0]);
 
   const pctChange =
@@ -91,7 +100,8 @@ export async function getDashboard(query: DashboardQuery, now: Date = new Date()
     insights: {
       completedChangePct: pctChange,
       spend30Cents: spend30,
-      avgPerOrderCents: completed30.length ? Math.round(spend30 / completed30.length) : 0,
+      avgPerOrderCents: billed30 ? Math.round(spend30 / billed30) : 0,
+      ordersBilled30: billed30,
       bestBucket: bestWeek ? { key: bestWeek.key, spendCents: bestWeek.spendCents } : null,
     },
     recent: active

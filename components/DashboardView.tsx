@@ -69,11 +69,12 @@ function Skeletons() {
 export function DashboardView() {
   const params = useSearchParams();
   const router = useRouter();
-  const [loaded, setLoaded] = useState<{
-    period: PeriodKey;
-    data?: Dashboard;
-    error?: string;
-  } | null>(null);
+  // The last payload that arrived and the last request that failed live in
+  // separate slots. Folded into one, a failed refetch erased the dashboard and
+  // took the switch that triggered it off the screen with everything else,
+  // leaving no way back to the period that did work.
+  const [loaded, setLoaded] = useState<{ period: PeriodKey; data: Dashboard } | null>(null);
+  const [failure, setFailure] = useState<{ period: PeriodKey; message: string } | null>(null);
 
   const raw = params.get("period");
   const period: PeriodKey = isPeriod(raw) ? raw : "week";
@@ -84,8 +85,12 @@ export function DashboardView() {
     let cancelled = false;
     fetch(`/api/dashboard?period=${period}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((data: Dashboard) => !cancelled && setLoaded({ period, data }))
-      .catch((e: Error) => !cancelled && setLoaded({ period, error: e.message }));
+      .then((data: Dashboard) => {
+        if (cancelled) return;
+        setLoaded({ period, data });
+        setFailure(null);
+      })
+      .catch((e: Error) => !cancelled && setFailure({ period, message: e.message }));
     return () => {
       cancelled = true;
     };
@@ -93,16 +98,26 @@ export function DashboardView() {
 
   // Which period the state in hand belongs to *is* the loading flag — a second
   // setState in the effect body only says the same thing one render later.
-  const loading = loaded?.period !== period;
   const data = loaded?.data ?? null;
-  const error = loading ? null : loaded?.error;
+  const error = failure?.period === period ? failure.message : null;
+  // Figures on screen belong to the period they were fetched for, not the one
+  // just clicked: labelling twelve weekly buckets "Best quarter" for the length
+  // of a request is a small lie the chart does not have to tell.
+  const shown = loaded?.period ?? period;
+  const stale = shown !== period;
 
   const selectPeriod = (key: PeriodKey) => {
     router.replace(key === "week" ? "/" : `/?period=${key}`, { scroll: false });
   };
 
-  const active = PERIODS.find((p) => p.key === period)!;
+  const active = PERIODS.find((p) => p.key === shown)!;
   const attention = data?.kpi.needAttention;
+
+  // The chip names the orders it is counting, but only the first few: the list
+  // is unbounded, and twenty numbers would wrap under the tile's corner link
+  // and push the whole KPI row apart. The rest are in the tooltip.
+  const named = attention?.alerting.slice(0, 2).join(", ");
+  const spill = (attention?.alerting.length ?? 0) - 2;
 
   const completedPoints: Point[] =
     data?.series.map((b) => ({
@@ -137,7 +152,7 @@ export function DashboardView() {
 
       {data && attention && (
         <>
-          <div className="kpi-grid" style={{ opacity: loading ? 0.6 : 1 }}>
+          <div className="kpi-grid" style={{ opacity: stale ? 0.6 : 1 }}>
             <div className="kpi kpi-accent-blue">
               <div className="label">Active Orders</div>
               <div className="value">{data.kpi.active.value}</div>
@@ -160,11 +175,16 @@ export function DashboardView() {
 
             {/* Awaiting action and alerts merged into one tile, as in the mockup.
                 Each order lands in exactly one of the two buckets, so the total
-                is a count of orders and not a count of reasons. */}
+                is a count of orders and not a count of reasons.
+
+                The link carries the tab that shares this tile's predicate, and
+                period=all because the tile counts over every order while the
+                list would otherwise default to the last 30 days — a tile that
+                promises three and opens a list of two is worse than no link. */}
             <Link
-              href="/orders?tab=alerts"
+              href="/orders?tab=attention&period=all"
               className="kpi kpi-attention"
-              title="Orders that need your action or carry an alert"
+              title="Orders where the next move is yours"
             >
               <div className="label">⚠ Need Attention</div>
               <div className="attention-body">
@@ -176,10 +196,10 @@ export function DashboardView() {
                   <span className="chip-awaiting">
                     {attention.awaitingAction} · awaiting your action
                   </span>
-                  <span className="chip-alerting">
+                  <span className="chip-alerting" title={attention.alerting.join(", ")}>
                     {attention.activeAlerts} ·{" "}
                     {attention.activeAlerts === 1 ? "alert" : "alerts"}
-                    {attention.alerting.length > 0 && ` (${attention.alerting.join(", ")})`}
+                    {named && ` (${named}${spill > 0 ? ` +${spill} more` : ""})`}
                   </span>
                 </div>
               </div>
@@ -195,14 +215,14 @@ export function DashboardView() {
           {data.recent.length === 0 ? (
             <div className="empty">Nothing in progress right now.</div>
           ) : (
-            <div className="cards-grid pair" style={{ opacity: loading ? 0.6 : 1 }}>
+            <div className="cards-grid pair" style={{ opacity: stale ? 0.6 : 1 }}>
               {data.recent.map((card) => (
                 <OrderCard card={card} key={card.number} />
               ))}
             </div>
           )}
 
-          <section className="panel">
+          <section className="panel" style={{ opacity: stale ? 0.6 : 1 }}>
             <div className="panel-head">
               <h2>📊 Your activity</h2>
               <div className="seg" role="group" aria-label="Chart bucket">

@@ -494,63 +494,100 @@ async function main() {
     const unit = rand() < 0.8 ? ("STANDARD_48X40" as const) : ("XL" as const);
     seq += between(1, 3);
 
+    const isConsolidation = opts.type === "CONSOLIDATION";
+    const cargoState =
+      opts.status === "CLOSED" ? "SHIPPED" : opts.status === "READY" ? "EXPECTED" : "ON_STOCK";
+
+    const common = {
+      companyId: company.id,
+      createdById: author.id,
+      type: opts.type,
+      status: opts.status,
+      cargoState,
+      hubId: hub.id,
+      scheduledAt: at(opts.scheduledDaysAgo, between(7, 18), 0),
+      closedAt: opts.closedDaysAgo === undefined ? null : at(opts.closedDaysAgo, between(9, 19), 0),
+      createdAt: at(opts.createdDaysAgo, between(8, 19), 0),
+    } as const;
+
     const order = await prisma.order.create({
       data: {
+        ...common,
         number: `FR00${seq}`,
-        companyId: company.id,
-        createdById: author.id,
-        type: opts.type,
         services: rand() < 0.3 ? ["STORAGE"] : [],
-        status: opts.status,
-        cargoState: opts.status === "CLOSED" ? "SHIPPED" : opts.status === "READY" ? "EXPECTED" : "ON_STOCK",
-        refNumber: `REF-${1100 + seq - 1700}`,
-        hubId: hub.id,
+        // A consolidation carries no cargo of its own: the pallets belong to its
+        // sub-orders, and the parent's numbers are the sum of theirs.
+        refNumber: isConsolidation ? null : `REF-${1100 + seq - 1700}`,
         destCity: city,
         destProvince: province,
-        scheduledAt: at(opts.scheduledDaysAgo, between(7, 18), 0),
-        closedAt: opts.closedDaysAgo === undefined ? null : at(opts.closedDaysAgo, between(9, 19), 0),
         carrierType: "COMPANY",
         carrierName: pick(carriers),
         trailerType: "Van · 53ft",
-        createdAt: at(opts.createdDaysAgo, between(8, 19), 0),
-        cargoLines: { create: [{ unitType: unit, declaredQty: qty }] },
+        ...(isConsolidation ? {} : { cargoLines: { create: [{ unitType: unit, declaredQty: qty }] } }),
       },
     });
 
-    await prisma.operation.create({
-      data: {
-        orderId: order.id,
-        kind: "UNLOADING",
-        qty,
-        unitType: unit,
-        appliedAt: at(opts.scheduledDaysAgo, between(8, 19), 0),
-        billable: true,
-        requiresPhoto: false,
-      },
-    });
-    if (opts.status === "CLOSED") {
+    // Where the cargo actually sits: the order itself, or each sub-order.
+    const cargoHolders: { id: string; qty: number }[] = [];
+
+    if (isConsolidation) {
+      const split = [Math.ceil(qty / 2), Math.floor(qty / 2)];
+      for (const [i, part] of split.entries()) {
+        const child = await prisma.order.create({
+          data: {
+            ...common,
+            number: `FR00${seq}-${i + 1}`,
+            parentId: order.id,
+            refNumber: `REF-${1100 + seq - 1700}-${i + 1}`,
+            cargoLines: { create: [{ unitType: unit, declaredQty: part }] },
+          },
+        });
+        cargoHolders.push({ id: child.id, qty: part });
+      }
+    } else {
+      cargoHolders.push({ id: order.id, qty });
+    }
+
+    const trailer = `TRL-${between(6000, 8999)}`;
+    for (const holder of cargoHolders) {
       await prisma.operation.create({
         data: {
-          orderId: order.id,
-          kind: "LOADING",
-          qty,
+          orderId: holder.id,
+          kind: "UNLOADING",
+          qty: holder.qty,
           unitType: unit,
-          appliedAt: at(opts.closedDaysAgo!, between(9, 19), 0),
+          trailerNo: trailer,
+          appliedAt: at(opts.scheduledDaysAgo, between(8, 19), 0),
           billable: true,
           requiresPhoto: false,
         },
       });
-      if (rand() < 0.4) {
-        const sku = pick(skuRows);
-        await prisma.supply.create({
+      if (opts.status === "CLOSED") {
+        await prisma.operation.create({
           data: {
-            orderId: order.id,
-            skuId: skus[sku.code].id,
-            qty: between(1, 12),
-            unitPriceCents: sku.platformCents,
+            orderId: holder.id,
+            kind: "LOADING",
+            qty: holder.qty,
+            unitType: unit,
+            trailerNo: trailer,
+            appliedAt: at(opts.closedDaysAgo!, between(9, 19), 0),
+            billable: true,
+            requiresPhoto: false,
           },
         });
       }
+    }
+
+    if (opts.status === "CLOSED" && rand() < 0.4) {
+      const sku = pick(skuRows);
+      await prisma.supply.create({
+        data: {
+          orderId: order.id,
+          skuId: skus[sku.code].id,
+          qty: between(1, 12),
+          unitPriceCents: sku.platformCents,
+        },
+      });
     }
     return order;
   }

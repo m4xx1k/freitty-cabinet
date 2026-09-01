@@ -1,0 +1,12 @@
+// Freitty client cabinet — schema.
+// Design rule: anything that can be derived is not stored.
+// Quantities and money come out of the Operation log, never out of a column.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

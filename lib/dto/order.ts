@@ -35,6 +35,10 @@ export function toOrderCard(row: OrderRow) {
       number: c.number,
       refNumber: c.refNumber,
       declaredQty: c.cargoLines.reduce((s, l) => s + l.declaredQty, 0),
+      // Through the same function the parent's own total goes through, so a leg
+      // of a consolidation cannot be counted one way in the list and another on
+      // the page it links to.
+      actualQty: quantities(toNode(c)).actual,
       hasAlert: alerts.some((a) => a.source === c.number),
     })),
     refCount: refNumbers(node).length,
@@ -65,6 +69,7 @@ export function toOrderDetail(row: OrderRow, rules: PriceRuleInput[]) {
 
   return {
     ...toOrderCard(row),
+    customer: row.company.name,
     dock: row.dock ? { code: row.dock.code, bay: row.dock.bay, assignedAt: row.dockAssignedAt } : null,
     truckNo: row.truckNo,
     trailerNo: row.trailerNo,

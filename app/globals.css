@@ -840,6 +840,421 @@ details.ref-n-multi .sub-desc em {
   font-style: normal;
 }
 
+/* ---- order detail ---- */
+.od-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.od-brand .mark {
+  width: 40px;
+  height: 40px;
+  background: var(--brand);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 900;
+  font-size: 22px;
+}
+.od-brand h1 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.od-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.od-head .lbl {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.od-head .num {
+  font-size: 16px;
+  color: var(--ink);
+}
+.od-head .btn {
+  padding: 6px 10px;
+}
+.od-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 3px 10px 3px 4px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.od-by .lbl {
+  color: var(--ink-faint);
+  font-weight: 500;
+  font-size: 11.5px;
+}
+.od-by .ava {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+}
+.badge-delta {
+  background: #fb923c;
+  color: #fff;
+}
+
+.od-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
+.od-meta .pairs {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 6px 14px;
+  font-size: 13px;
+  align-content: start;
+}
+.od-meta .k {
+  color: var(--ink-soft);
+}
+.od-meta .v {
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.od-meta .v small {
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+.od-meta .hot {
+  color: var(--brand);
+}
+.flow {
+  font-size: 11px;
+  color: #374151;
+}
+.flow .now {
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.od-row {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+/* No dock assigned means no dock card, and the counts take the whole row rather
+   than squeezing into the column it would have stood in. */
+.od-row.no-dock {
+  grid-template-columns: 1fr;
+}
+.od-counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+.count-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+.count-card.off {
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+.count-card.off .cap,
+.count-card.off .big,
+.count-card.off .sub {
+  color: #78350f;
+}
+.cap {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 700;
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+.count-card .big {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.count-card .sub,
+.count-card .note {
+  font-size: 11px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.count-card .note {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+/* The dock, drawn rather than described: a gate number is easier to find on a
+   plan than in a sentence. */
+.dock-card .dock-yard {
+  background: linear-gradient(180deg, #f9fafb, #e5e7eb);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.dock-yard .wall {
+  align-self: stretch;
+  height: 22px;
+  background: var(--ink);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.dock-yard .gates {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.dock-yard .gate {
+  width: 38px;
+  height: 50px;
+  background: var(--ink-faint);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 9px;
+}
+.dock-yard .gate.here {
+  width: 84px;
+  background: var(--brand);
+  border: 2px solid #991b1b;
+  font-size: 11px;
+  font-weight: 700;
+}
+.dock-yard .trailer {
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+  padding: 4px 10px;
+  font-size: 9px;
+  font-weight: 700;
+}
+.dock-foot {
+  font-size: 12px;
+  margin-top: 10px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.dock-foot strong {
+  color: var(--ink);
+}
+.dock-foot .ok {
+  color: var(--ok);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* ---- tables on the detail page ---- */
+.table-panel {
+  padding: 0;
+  overflow: hidden;
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+.panel-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.panel-bar strong {
+  color: var(--ink);
+}
+.panel-bar .hint {
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.grid thead {
+  background: #f9fafb;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+table.grid th {
+  text-align: left;
+  padding: 8px 14px;
+  font-weight: 700;
+}
+table.grid td {
+  padding: 10px 14px;
+  border-top: 1px solid #f3f4f6;
+}
+table.grid .num {
+  text-align: right;
+}
+table.grid td.strong {
+  font-weight: 700;
+  color: var(--steel);
+}
+table.grid td.soft {
+  color: var(--ink-soft);
+}
+table.grid td.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: #5b21b6;
+  font-weight: 700;
+}
+table.grid td.mono.ref {
+  color: var(--brand);
+  font-size: 12px;
+}
+table.grid tr.bad {
+  background: #fef2f2;
+}
+table.grid tr.bad td.strong {
+  color: #dc2626;
+}
+table.grid tfoot td {
+  background: #f9fafb;
+  font-weight: 700;
+  color: var(--ink);
+  border-top: 1px solid var(--line);
+}
+table.grid tfoot td:first-child {
+  text-align: right;
+  color: var(--ink-soft);
+}
+.dollar {
+  color: #059669;
+  font-weight: 700;
+  margin-right: 6px;
+}
+.empty.flat {
+  border: none;
+  padding: 28px 14px;
+}
+
+/* The claim the whole build rests on, spelled out under the log it comes from. */
+.reconcile {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: #f1f5f9;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: #475569;
+}
+.reconcile strong {
+  color: var(--ink);
+}
+.reconcile .delta {
+  color: var(--warn);
+}
+
+.od-totals {
+  display: flex;
+  gap: 24px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.od-totals .k {
+  color: var(--ink-soft);
+  margin-right: 8px;
+}
+.od-totals .v {
+  font-weight: 700;
+  color: var(--ink);
+}
+.od-totals .grand .v {
+  font-size: 18px;
+  color: var(--brand);
+}
+.od-totals .note {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.od-docs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.od-docs .doc {
+  padding: 4px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-soft);
+}
+.lnk {
+  color: var(--steel);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .od-meta,
+  .od-row,
+  .od-counts {
+    grid-template-columns: 1fr;
+  }
+  .table-panel {
+    overflow-x: auto;
+  }
+}
+
 /* ---- states ---- */
 .pager {
   display: flex;

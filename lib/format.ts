@@ -28,6 +28,26 @@ export function formatUnits(byUnit: Record<string, number>): string {
   return parts.length ? parts.join(" + ") : "—";
 }
 
+/** The long form, for the operations table where the pallet type is a column. */
+export const UNIT_FULL: Record<string, string> = {
+  STANDARD_48X40: "Standard (48×40)",
+  XL: "XL",
+};
+
+export const OPERATION_LABEL: Record<string, string> = {
+  UNLOADING: "Unloading",
+  DISPOSAL: "Disposal",
+  RESTACK: "Restack",
+  LOADING: "Loading",
+  STORAGE: "Storage",
+};
+
+export const SKU_CATEGORY_LABEL: Record<string, string> = {
+  SECUREMENT: "Securement",
+  EDGE_PROTECT: "Edge protect",
+  WRAP: "Wrap",
+};
+
 export const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
   READY: "New",

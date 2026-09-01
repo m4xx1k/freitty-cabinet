@@ -3,6 +3,7 @@ import type { OrderNode, OperationInput, PriceRuleInput } from "@/lib/domain/typ
 
 // Everything the domain needs about one order, its sub-orders included.
 export const orderInclude = {
+  company: { select: { name: true } },
   hub: true,
   dock: true,
   createdBy: true,

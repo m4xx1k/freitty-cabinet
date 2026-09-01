@@ -130,9 +130,18 @@ otherwise report `Δ −18` and raise an alert on a perfectly healthy order.
 client-actionable alert goes to `activeAlerts`, otherwise a draft or an
 unconfirmed delta or an overdue truck goes to `awaitingAction`. Without that rule
 FR001674 — which has *both* a delta and a missing photo — would be counted twice
-and the tile would read 4 where the mockup says 3. Note the Alerts **tab** counts
-2 (any order with any alert) while the tile's alert bucket counts 1 (only the
-client-actionable one); these measure different things on purpose.
+and the tile would read 4 where the mockup says 3.
+
+**Three counts live near each other and none of them are the same number**, which
+is worth saying before someone asks. The tile reads **3**: every order whose next
+move is the client's. Its alert bucket reads **1**: only the client-actionable
+alert. The **Alerts** tab reads **2**: any order carrying any alert. The tile is
+a link, so it points at a **Need Attention** tab that shares its predicate —
+`needsClientAttention()` in `lib/domain/alerts.ts`, read by both — and the link
+carries `period=all`, since the tile counts over every order while the list
+defaults to thirty days. Pointing it at Alerts instead promised three and
+delivered two: a draft has no operations and so can raise no alert, but somebody
+still has to submit it.
 
 ---
 
@@ -200,8 +209,9 @@ lib/format.ts    dates, money, unit labels, status labels, avatar colours
 
 app/api/…        route handlers: zod on the way in, DTO on the way out
 app/page.tsx     the dashboard (server shell + client view)
-app/orders/      the list page (server shell + client view)
-components/      Shell, OrderCard, OrdersView, DashboardView, Charts
+app/orders/      the list page and the detail page, both server shell + client view
+components/      Shell, OrderCard, OrdersView, DashboardView, Charts,
+                 OrderDetailView
 prisma/          schema, migrations, seed.ts, gate.sql
 ```
 
@@ -280,8 +290,8 @@ formula.**
 ## 9. State of play
 
 Done: **E0** scaffold deployed · **E1** schema, migrations, seed · **E2** domain
-+ 16 tests · **E3** four REST routes + `/api/session` · **E4** shell and order
-list · **E5** dashboard.
++ 17 tests · **E3** four REST routes + `/api/session` · **E4** shell and order
+list · **E5** dashboard · **E6** order detail.
 
 **E5**, in detail: three KPI tiles (the wide Need Attention one spans two slots
 and carries its own breakdown, as in the mockup), the four active orders, the two
@@ -292,12 +302,22 @@ no longer call `setState` in the effect body — the period (or query string) th
 loaded payload belongs to *is* the loading flag, so the second setState only
 restated it one render later.
 
+**E6**, in detail: the header carries both axes as neighbouring badges, the meta
+grid, the dock drawn as a plan, expected / actual / warehouse note, the
+operations log with a reconciliation strip under it — `Σ Unloading 12 = actual ·
+− Disposal 1 = shippable 11 · BOL declared 10 → Δ +2`, which is the whole
+argument of the build in one line — the supplies table, and the platform-only
+totals. A consolidation gets a sub-orders table above the log, each leg with its
+own declared and actual through the same `quantities()` the parent uses, and the
+log gains a Leg column. Only the mockup's cross-dock detail existed to copy;
+the consolidation view is the same layout extended.
+
+Sub-order numbers are deliberately not links: only top-level orders have a page,
+and the 404 copy says where to find one. The prefetch 404s the cards used to
+throw are gone.
+
 Left:
 
-- **E6 — Order detail** (`app/orders/[number]/page.tsx` does not exist; cards
-  already link to it, so every card 404s and Next's prefetch fills the console
-  with 404s — this disappears the moment the page lands). Show FR001383 in full
-  and FR001676 for the ref list.
 - **E7 — polish**: mobile is broken (`scrollWidth` 713 at a 390 viewport — the
   220px sidebar never collapses; the dashboard's own grids already fold to one
   column at 900px, so the sidebar is the whole of what is left); dates render in the browser's timezone, so a
@@ -330,11 +350,13 @@ the public TCP proxy in `.env`. Two traps already paid for: a route with
 ## 11. Three minutes of demo
 
 1. *"The order is recursive. A consolidation is the same order with children, and
-   Ref N lives on the leaf and aggregates upwards."* → FR001676 with the ref list
-   open.
+   Ref N lives on the leaf and aggregates upwards."* → FR001676, the ref list on
+   the card and then the sub-orders table on `/orders/FR001676`, whose legs add
+   up to the parent's row.
 2. *"Quantity and money are not stored, they come out of the operation log. Here
-   is the delta, and here is where it came from."* → the operations table next to
-   `Δ +2`. Add: actual is what came off the truck, shippable is what leaves.
+   is the delta, and here is where it came from."* → `/orders/FR001383`, the
+   reconciliation strip under the operations table. Actual is what came off the
+   truck, shippable is what leaves.
 3. *"An alert is a rule, not a status. Three rules, and Need Attention is built
    from them."* → the tile, then click through to the filtered list.
 4. *"Prices are masked as $1 in the mockup, so the tariff is two-layered:

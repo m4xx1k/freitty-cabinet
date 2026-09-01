@@ -199,10 +199,18 @@ lib/db/prisma.ts one client per process, through the pg driver adapter
 lib/format.ts    dates, money, unit labels, status labels, avatar colours
 
 app/api/…        route handlers: zod on the way in, DTO on the way out
+app/page.tsx     the dashboard (server shell + client view)
 app/orders/      the list page (server shell + client view)
-components/      Shell, OrderCard, OrdersView
+components/      Shell, OrderCard, OrdersView, DashboardView, Charts
 prisma/          schema, migrations, seed.ts, gate.sql
 ```
+
+**The two charts are hand-drawn SVG, not a charting library.** Twelve numbers in,
+one `<path>` out: no axes to negotiate, no legend, no zoom, and the mockup itself
+draws them as plain `<svg>`. Recharts would ship ~100 KB to the client to
+produce the same twelve rectangles. `components/Charts.tsx` takes
+`{ key, value, title }[]` and knows nothing about orders or money — the caller
+formats the hover text, so the chart never learns what a cent is.
 
 **The layering, said in Nest terms** — this is the prepared answer for "why not
 NestJS": the zod schema at the edge of a route is a **Pipe**; the serialiser in
@@ -273,20 +281,26 @@ formula.**
 
 Done: **E0** scaffold deployed · **E1** schema, migrations, seed · **E2** domain
 + 16 tests · **E3** four REST routes + `/api/session` · **E4** shell and order
-list.
+list · **E5** dashboard.
+
+**E5**, in detail: three KPI tiles (the wide Need Attention one spans two slots
+and carries its own breakdown, as in the mockup), the four active orders, the two
+charts with the `Day / CW / Month / Quarter` switch, and the insight strip. The
+switch lives in the URL like the list's filters, so `/?period=quarter` is a link.
+`pnpm lint` is clean again: the fetch effects in `DashboardView` and `OrdersView`
+no longer call `setState` in the effect body — the period (or query string) the
+loaded payload belongs to *is* the loading flag, so the second setState only
+restated it one render later.
 
 Left:
 
-- **E5 — Dashboard** (`app/page.tsx` is a placeholder). Four KPI tiles, the wide
-  Need Attention tile with its breakdown, two Recharts charts, the
-  `Day / CW / Month / Quarter` switch, the insight strip. `/api/dashboard`
-  already returns everything it needs.
 - **E6 — Order detail** (`app/orders/[number]/page.tsx` does not exist; cards
   already link to it, so every card 404s and Next's prefetch fills the console
   with 404s — this disappears the moment the page lands). Show FR001383 in full
   and FR001676 for the ref list.
 - **E7 — polish**: mobile is broken (`scrollWidth` 713 at a 390 viewport — the
-  220px sidebar never collapses); dates render in the browser's timezone, so a
+  220px sidebar never collapses; the dashboard's own grids already fold to one
+  column at 900px, so the sidebar is the whole of what is left); dates render in the browser's timezone, so a
   reviewer abroad sees shifted hours; `gate.sql` duplicates its alert condition
   between `CASE` and `WHERE`; `/api/session` counts attention over the whole
   database while the Alerts tab is scoped to 30 days, and it is a full deep query

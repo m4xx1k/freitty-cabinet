@@ -26,9 +26,11 @@ const STATUSES = ["READY", "IN_PROGRESS", "CONSOLIDATED", "IN_TRANSIT", "CLOSED"
 export function OrdersView() {
   const params = useSearchParams();
   const router = useRouter();
-  const [data, setData] = useState<ListResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState<{
+    query: string;
+    data?: ListResponse;
+    error?: string;
+  } | null>(null);
   const [hubs, setHubs] = useState<{ name: string }[]>([]);
 
   const query = params.toString();
@@ -36,20 +38,19 @@ export function OrdersView() {
   // Filters live in the URL, so every view is a link someone can send.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     fetch(`/api/orders?${query}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((json: ListResponse) => {
-        if (cancelled) return;
-        setData(json);
-        setError(null);
-      })
-      .catch((e: Error) => !cancelled && setError(e.message))
-      .finally(() => !cancelled && setLoading(false));
+      .then((data: ListResponse) => !cancelled && setLoaded({ query, data }))
+      .catch((e: Error) => !cancelled && setLoaded({ query, error: e.message }));
     return () => {
       cancelled = true;
     };
   }, [query]);
+
+  // Which filters the state in hand belongs to is already the loading flag.
+  const loading = loaded?.query !== query;
+  const data = loaded?.data ?? null;
+  const error = loading ? null : loaded?.error;
 
   useEffect(() => {
     fetch("/api/hubs")

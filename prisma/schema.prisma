@@ -1,6 +1,8 @@
-// Freitty client cabinet — schema.
-// Design rule: anything that can be derived is not stored.
-// Quantities and money come out of the Operation log, never out of a column.
+// Freitty client cabinet.
+//
+// One rule runs through the whole schema: anything that can be derived is not
+// stored. Quantities, deltas, alerts and money all come out of the Operation
+// log and the price tables, never out of a column someone has to keep in sync.
 
 generator client {
   provider = "prisma-client"
@@ -9,4 +11,322 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ─────────────────────────────── enums ───────────────────────────────
+
+enum Role {
+  ADMIN // client-side administrator
+  DISPATCHER // client-side, files the orders
+  DRIVER // client's own driver
+  FLOOR_LEAD // warehouse staff, belongs to a hub instead of a company
+}
+
+enum OrderType {
+  CROSS_DOCK
+  CONSOLIDATION
+}
+
+enum Service {
+  STORAGE
+  PICKUP
+  TRANSLOAD
+  RESTOCK_REWORK
+}
+
+// The seven columns of the pipeline view, in order.
+enum OrderStatus {
+  DRAFT
+  READY
+  IN_PROGRESS
+  CONSOLIDATED
+  IN_TRANSIT
+  DECONSOLIDATED
+  CLOSED
+}
+
+// Second, independent axis: where the cargo physically is.
+enum CargoState {
+  EXPECTED
+  ON_STOCK
+  LOADED
+  SHIPPED
+}
+
+enum UnitType {
+  STANDARD_48X40
+  XL
+}
+
+enum OperationKind {
+  UNLOADING
+  DISPOSAL
+  RESTACK
+  LOADING
+  STORAGE
+}
+
+// The mockup renders these three cases differently: a carrier company by name,
+// the client's own driver as a user chip, and self pickup with no carrier at all.
+enum CarrierType {
+  COMPANY
+  OWN_DRIVER
+  SELF_PICKUP
+}
+
+enum AttachmentKind {
+  PHOTO
+  DOC
+  BOL
+}
+
+enum SkuCategory {
+  SECUREMENT
+  EDGE_PROTECT
+  WRAP
+}
+
+// ─────────────────────────── tenant and people ───────────────────────────
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String
+  balanceCents Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  users  User[]
+  orders Order[]
+}
+
+model User {
+  id       String  @id @default(cuid())
+  name     String
+  initials String // "U1" — the avatar in every card header
+  role     Role
+
+  // A client user belongs to a company; warehouse staff belongs to a hub.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+  hubId     String?
+  hub       Hub?     @relation(fields: [hubId], references: [id])
+
+  createdOrders  Order[]   @relation("OrderCreatedBy")
+  drivenOrders   Order[]   @relation("OrderDriver")
+  assignedOrders Order[]   @relation("OrderAssignedTo")
+  comments       Comment[]
+  events         OrderEvent[]
+
+  @@index([companyId])
+}
+
+model Hub {
+  id       String @id @default(cuid())
+  name     String
+  city     String
+  province String
+
+  docks      Dock[]
+  orders     Order[]
+  staff      User[]
+  priceRules PriceRule[]
+}
+
+model Dock {
+  id    String @id @default(cuid())
+  hubId String
+  hub   Hub    @relation(fields: [hubId], references: [id])
+  code  String // "Dock 12"
+  bay   String // "B"
+
+  orders Order[]
+
+  @@unique([hubId, code])
+}
+
+// ─────────────────────────────── core ───────────────────────────────
+
+model Order {
+  id     String @id @default(cuid())
+  number String @unique // FR001676, or FR001676-2 for a sub-order
+
+  // Self-relation instead of a separate SubOrder table: cross-dock and
+  // consolidation are the same entity at different depths.
+  parentId String?
+  parent   Order?  @relation("OrderTree", fields: [parentId], references: [id])
+  children Order[] @relation("OrderTree")
+
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id])
+  createdById String
+  createdBy   User    @relation("OrderCreatedBy", fields: [createdById], references: [id])
+
+  type     OrderType
+  services Service[]
+
+  // Two independent axes. Merging them into one enum costs either information
+  // or twenty statuses.
+  status     OrderStatus @default(DRAFT)
+  cargoState CargoState  @default(EXPECTED)
+
+  // Lives on the leaf. A consolidation parent aggregates its children's refs;
+  // for cross-dock the leaf is the order itself, which is why it looks like a
+  // plain field there.
+  refNumber String?
+
+  hubId          String
+  hub            Hub       @relation(fields: [hubId], references: [id])
+  dockId         String?
+  dock           Dock?     @relation(fields: [dockId], references: [id])
+  dockAssignedAt DateTime?
+
+  destCity     String?
+  destProvince String?
+  destNote     String? // "via External PDF", "Order with photos"
+
+  scheduledAt DateTime
+  closedAt    DateTime?
+
+  carrierType  CarrierType?
+  carrierName  String?
+  carrierPhone String?
+  driverId     String?
+  driver       User?        @relation("OrderDriver", fields: [driverId], references: [id])
+  assignedToId String?
+  assignedTo   User?        @relation("OrderAssignedTo", fields: [assignedToId], references: [id])
+
+  truckNo     String?
+  trailerNo   String?
+  trailerType String? // "Van · 53ft"
+
+  warehouseNote String? // free text from the floor, shown next to the delta
+
+  createdAt DateTime @default(now())
+
+  cargoLines  CargoLine[]
+  operations  Operation[]
+  supplies    Supply[]
+  attachments Attachment[]
+  comments    Comment[]
+  events      OrderEvent[]
+
+  @@index([companyId, status])
+  @@index([parentId])
+  @@index([refNumber])
+  @@index([closedAt])
+}
+
+// What the BOL says. Several lines per order, one per pallet type.
+model CargoLine {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  unitType    UnitType
+  declaredQty Int
+
+  @@index([orderId])
+}
+
+// The warehouse event log — the source of truth for quantity and money.
+model Operation {
+  id        String        @id @default(cuid())
+  orderId   String
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind      OperationKind
+  trailerNo String?
+  qty       Int
+  unitType  UnitType
+  appliedAt DateTime
+
+  billable Boolean @default(true) // marked with $ in the mockup
+  // Some operations must be documented; zero attachments then raise MISSING_PHOTO.
+  requiresPhoto Boolean @default(false)
+
+  attachments Attachment[]
+  comments    Comment[]
+
+  @@index([orderId, appliedAt])
+}
+
+// ─────────────────────────────── money ───────────────────────────────
+
+// Tariffs live in the database, not in code: a hardcoded price makes every old
+// invoice wrong the day it changes.
+model PriceRule {
+  id            String        @id @default(cuid())
+  hubId         String? // null = applies to every hub
+  hub           Hub?          @relation(fields: [hubId], references: [id])
+  operationKind OperationKind
+  unitType      UnitType
+  platformCents Int // what the client is charged — the only price the API returns
+  partnerCents  Int // warehouse partner's cut — never leaves the server
+
+  @@unique([hubId, operationKind, unitType])
+}
+
+model Sku {
+  id            String      @id @default(cuid())
+  code          String      @unique // "Straps 12"
+  category      SkuCategory
+  platformCents Int
+  partnerCents  Int
+
+  supplies Supply[]
+}
+
+model Supply {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  skuId   String
+  sku     Sku    @relation(fields: [skuId], references: [id])
+  qty     Int
+
+  // Copied from the SKU when the line is added, so a later price change does
+  // not silently rewrite an invoice that has already been issued.
+  unitPriceCents Int
+
+  @@index([orderId])
+}
+
+// ────────────────────────────── trimmings ──────────────────────────────
+
+model Attachment {
+  id          String         @id @default(cuid())
+  kind        AttachmentKind
+  url         String
+  orderId     String?
+  order       Order?         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  operationId String?
+  operation   Operation?     @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+
+  @@index([orderId])
+  @@index([operationId])
+}
+
+model Comment {
+  id          String     @id @default(cuid())
+  orderId     String
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  operationId String? // the operations table shows a comment count per row
+  operation   Operation? @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+  body        String
+  createdAt   DateTime   @default(now())
+
+  @@index([orderId])
+}
+
+model OrderEvent {
+  id         String       @id @default(cuid())
+  orderId    String
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  actorId    String?
+  actor      User?        @relation(fields: [actorId], references: [id])
+  at         DateTime     @default(now())
+
+  @@index([orderId, at])
 }

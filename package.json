@@ -9,10 +9,11 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma migrate dev && prisma generate",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "db:gate": "bash scripts/gate.sh"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

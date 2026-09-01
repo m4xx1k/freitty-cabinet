@@ -74,3 +74,9 @@ export async function loadPriceRules(): Promise<PriceRuleInput[]> {
     select: { hubId: true, operationKind: true, unitType: true, platformCents: true },
   });
 }
+
+/** Every top-level order as a domain node — used wherever alerts are counted. */
+export async function loadAllNodes() {
+  const rows = await prisma.order.findMany({ where: { parentId: null }, include: orderInclude });
+  return rows.map((row) => ({ row, node: toNode(row) }));
+}

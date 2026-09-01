@@ -246,6 +246,9 @@ a {
   opacity: 0.45;
   cursor: default;
 }
+.btn.block {
+  width: 100%;
+}
 
 /* ---- badges ---- */
 .badge {
@@ -1168,6 +1171,14 @@ table.grid tfoot td:first-child {
   text-align: right;
   color: var(--ink-soft);
 }
+/* The "missing photo" flag is a second fact about the row, not a suffix to the
+   counts: inline it stretched the column and shoved the table sideways. */
+table.grid td.docs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
 .dollar {
   color: #059669;
   font-weight: 700;
@@ -1298,5 +1309,95 @@ table.grid tfoot td:first-child {
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
+  }
+}
+
+/* ---- narrow screens ----
+   The 220px sidebar is a column of the page grid, so on a phone it does not
+   shrink — it pushes the content out and the whole document scrolls sideways.
+   Below 900px it stops being a column and becomes a strip along the top: same
+   markup, same links, no horizontal scroll. */
+@media (max-width: 900px) {
+  .fc-shell {
+    grid-template-columns: 1fr;
+  }
+  .fc-sidebar {
+    position: static;
+    height: auto;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .fc-logo {
+    padding: 0;
+    font-size: 18px;
+  }
+  .fc-nav {
+    display: flex;
+    gap: 4px;
+  }
+  .fc-nav li {
+    padding: 6px 10px;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 6px;
+  }
+  .fc-nav li.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--brand);
+  }
+  .fc-sidebar-foot {
+    padding: 0;
+    margin: 0 0 0 auto;
+    border-top: none;
+  }
+  .fc-sidebar-foot .btn.block {
+    width: auto;
+  }
+
+  .fc-topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .fc-topbar form {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .fc-search {
+    max-width: none;
+  }
+  .fc-user .name {
+    display: none;
+  }
+  .fc-content {
+    padding: 14px 12px;
+  }
+
+  /* The ref list is a popover with a fixed minimum, which is wider than a phone. */
+  details.ref-n-multi .ref-list {
+    min-width: 0;
+    width: min(320px, 78vw);
+  }
+  details.ref-n-multi .sub-desc {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 560px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .kpi-attention {
+    grid-column: span 1;
+  }
+  .oc-body {
+    grid-template-columns: 1fr;
+  }
+  .oc-body .wide {
+    grid-column: span 1;
   }
 }

@@ -63,31 +63,32 @@ GROUP BY p.id, p.number
 ORDER BY p.number;
 
 \echo '── alerts: exactly two orders, one of them client-actionable ──'
-SELECT o.number,
-       CASE WHEN (SELECT coalesce(sum(op.qty),0) FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
-                   WHERE (x.id = o.id OR x."parentId" = o.id) AND op.kind = 'UNLOADING') > 0
-             AND (SELECT coalesce(sum(op.qty),0) FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
-                   WHERE (x.id = o.id OR x."parentId" = o.id) AND op.kind = 'UNLOADING')
-              <> (SELECT coalesce(sum(c."declaredQty"),0) FROM "CargoLine" c JOIN "Order" x ON x.id = c."orderId"
-                   WHERE x.id = o.id OR x."parentId" = o.id)
-            THEN 'QTY_DELTA' END AS qty_delta,
-       CASE WHEN EXISTS (SELECT 1 FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
-                          WHERE (x.id = o.id OR x."parentId" = o.id) AND op."requiresPhoto"
-                            AND NOT EXISTS (SELECT 1 FROM "Attachment" a
-                                             WHERE a."operationId" = op.id AND a.kind = 'PHOTO'))
-            THEN 'MISSING_PHOTO' END AS missing_photo
-FROM "Order" o
-WHERE o."parentId" IS NULL
-  AND (
-    (SELECT coalesce(sum(op.qty),0) FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
-      WHERE (x.id = o.id OR x."parentId" = o.id) AND op.kind = 'UNLOADING') > 0
-    AND (SELECT coalesce(sum(op.qty),0) FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
-          WHERE (x.id = o.id OR x."parentId" = o.id) AND op.kind = 'UNLOADING')
-     <> (SELECT coalesce(sum(c."declaredQty"),0) FROM "CargoLine" c JOIN "Order" x ON x.id = c."orderId"
-          WHERE x.id = o.id OR x."parentId" = o.id)
-    OR EXISTS (SELECT 1 FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
-                WHERE (x.id = o.id OR x."parentId" = o.id) AND op."requiresPhoto"
-                  AND NOT EXISTS (SELECT 1 FROM "Attachment" a
-                                   WHERE a."operationId" = op.id AND a.kind = 'PHOTO'))
-  )
-ORDER BY o.number;
+-- The rule is written once, in per_order, and both the label and the filter read
+-- the columns it produces. Spelled out twice — once in a CASE and again in a
+-- WHERE — the gate would keep passing while the two drifted apart, which is the
+-- one thing a gate exists to prevent.
+WITH per_order AS (
+  SELECT o.number,
+         (SELECT coalesce(sum(op.qty), 0) FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
+           WHERE (x.id = o.id OR x."parentId" = o.id) AND op.kind = 'UNLOADING') AS unloaded,
+         (SELECT coalesce(sum(c."declaredQty"), 0) FROM "CargoLine" c JOIN "Order" x ON x.id = c."orderId"
+           WHERE x.id = o.id OR x."parentId" = o.id) AS declared,
+         EXISTS (SELECT 1 FROM "Operation" op JOIN "Order" x ON x.id = op."orderId"
+                  WHERE (x.id = o.id OR x."parentId" = o.id) AND op."requiresPhoto"
+                    AND NOT EXISTS (SELECT 1 FROM "Attachment" a
+                                     WHERE a."operationId" = op.id AND a.kind = 'PHOTO')) AS undocumented
+  FROM "Order" o
+  WHERE o."parentId" IS NULL
+),
+flagged AS (
+  -- A delta only counts once something has actually been unloaded, exactly as
+  -- lib/domain/alerts.ts holds it back while a count is in progress.
+  SELECT number,
+         CASE WHEN unloaded > 0 AND unloaded <> declared THEN 'QTY_DELTA' END AS qty_delta,
+         CASE WHEN undocumented THEN 'MISSING_PHOTO' END AS missing_photo
+  FROM per_order
+)
+SELECT number, qty_delta, missing_photo
+FROM flagged
+WHERE qty_delta IS NOT NULL OR missing_photo IS NOT NULL
+ORDER BY number;

@@ -1,17 +1,46 @@
 import type { UnitType } from "@/lib/domain/types";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/**
+ * Times render in a fixed zone, never the reader's.
+ *
+ * A slot is an appointment at a dock: "08:00" is when the truck is expected
+ * *there*. Left to the browser, a reviewer opening the link from Europe reads
+ * 13:00 for the same booking and the operations log tells a different story
+ * about the same morning. A fixed zone also makes the server and the client
+ * agree, which is what keeps hydration quiet.
+ *
+ * The zone is UTC because that is the zone the seed's wall-clock times were
+ * written in — 08:55 in prisma/seed.ts means 08:55 on the floor. In production
+ * this constant becomes the hub's own zone, which is a column the schema does
+ * not have yet; either way the point is that it is a property of where the work
+ * happened, not of who is looking at it.
+ */
+const DISPLAY_TZ = "UTC";
+
+const STAMP = new Intl.DateTimeFormat("en-US", {
+  timeZone: DISPLAY_TZ,
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function stamp(value: string | Date) {
+  const parts = STAMP.formatToParts(new Date(value));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return { day: get("day"), month: get("month"), hour: get("hour"), minute: get("minute") };
+}
 
 export function formatDay(value: string | Date): string {
-  const d = new Date(value);
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  const { day, month } = stamp(value);
+  return `${day} ${month}`;
 }
 
 export function formatDayTime(value: string | Date): string {
-  const d = new Date(value);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${formatDay(d)}, ${hh}:${mm}`;
+  const { day, month, hour, minute } = stamp(value);
+  return `${day} ${month}, ${hour}:${minute}`;
 }
 
 export function formatMoney(cents: number): string {

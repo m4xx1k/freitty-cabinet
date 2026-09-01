@@ -81,3 +81,71 @@ export async function loadAllNodes() {
   const rows = await prisma.order.findMany({ where: { parentId: null }, include: orderInclude });
   return rows.map((row) => ({ row, node: toNode(row) }));
 }
+
+// Alerts need three things and nothing else: what the BOL declared, what the log
+// says happened, and whether the operations that must be documented were. The
+// shell asks for this on every page load, so it pulls those and leaves the hub,
+// dock, driver, staff, supplies and documents on the server.
+const attentionInclude = {
+  cargoLines: { select: { unitType: true, declaredQty: true } },
+  operations: {
+    select: {
+      kind: true,
+      qty: true,
+      unitType: true,
+      appliedAt: true,
+      billable: true,
+      requiresPhoto: true,
+      attachments: { where: { kind: "PHOTO" as const }, select: { id: true } },
+    },
+  },
+} as const;
+
+type AttentionRow = {
+  number: string;
+  status: OrderNode["status"];
+  scheduledAt: Date;
+  cargoLines: { unitType: OrderNode["cargoLines"][number]["unitType"]; declaredQty: number }[];
+  operations: {
+    kind: OperationInput["kind"];
+    qty: number;
+    unitType: OperationInput["unitType"];
+    appliedAt: Date;
+    billable: boolean;
+    requiresPhoto: boolean;
+    attachments: { id: string }[];
+  }[];
+  children?: AttentionRow[];
+};
+
+const toAttentionNode = (row: AttentionRow): OrderNode => ({
+  number: row.number,
+  status: row.status,
+  scheduledAt: row.scheduledAt,
+  cargoLines: row.cargoLines,
+  operations: row.operations.map((op) => ({
+    kind: op.kind,
+    qty: op.qty,
+    unitType: op.unitType,
+    appliedAt: op.appliedAt,
+    billable: op.billable,
+    requiresPhoto: op.requiresPhoto,
+    photoCount: op.attachments.length,
+  })),
+  children: (row.children ?? []).map(toAttentionNode),
+});
+
+/** The same nodes as loadAllNodes, minus every relation an alert cannot read. */
+export async function loadAttentionNodes(): Promise<OrderNode[]> {
+  const rows = await prisma.order.findMany({
+    where: { parentId: null },
+    select: {
+      number: true,
+      status: true,
+      scheduledAt: true,
+      ...attentionInclude,
+      children: { select: { number: true, status: true, scheduledAt: true, ...attentionInclude } },
+    },
+  });
+  return rows.map(toAttentionNode);
+}

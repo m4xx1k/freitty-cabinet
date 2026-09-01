@@ -1,8 +1,8 @@
-import { alertsFor } from "@/lib/domain/alerts";
+import { alertsFor, type Alert } from "@/lib/domain/alerts";
 import { nextAction } from "@/lib/domain/nextAction";
 import { orderTotals } from "@/lib/domain/pricing";
-import { quantities, refNumbers, trailerCount } from "@/lib/domain/quantities";
-import type { PriceRuleInput } from "@/lib/domain/types";
+import { quantities, type Quantities, refNumbers, trailerCount } from "@/lib/domain/quantities";
+import type { OrderNode, PriceRuleInput } from "@/lib/domain/types";
 import { toNode, type ChildRow, type OrderRow } from "@/lib/services/orders";
 
 // The only place a database row turns into a response body.
@@ -19,11 +19,13 @@ function carrierOf(row: OrderRow) {
   return { type: row.carrierType, label: row.carrierName ?? "—", phone: row.carrierPhone };
 }
 
-export function toOrderCard(row: OrderRow) {
-  const node = toNode(row);
-  const alerts = alertsFor(node);
-  const qty = quantities(node);
-
+/**
+ * The card body, given work the caller has already done. The detail response is
+ * a card plus more, and both need the node, its alerts and its quantities — so
+ * they are computed once and passed down rather than derived twice from the
+ * same row.
+ */
+function cardFrom(row: OrderRow, node: OrderNode, alerts: Alert[], qty: Quantities) {
   return {
     number: row.number,
     type: row.type,
@@ -63,12 +65,18 @@ export function toOrderCard(row: OrderRow) {
   };
 }
 
+export function toOrderCard(row: OrderRow) {
+  const node = toNode(row);
+  return cardFrom(row, node, alertsFor(node), quantities(node));
+}
+
 export function toOrderDetail(row: OrderRow, rules: PriceRuleInput[]) {
   const node = toNode(row);
+  const qty = quantities(node);
   const totals = orderTotals(node, rules);
 
   return {
-    ...toOrderCard(row),
+    ...cardFrom(row, node, alertsFor(node), qty),
     customer: row.company.name,
     dock: row.dock ? { code: row.dock.code, bay: row.dock.bay, assignedAt: row.dockAssignedAt } : null,
     truckNo: row.truckNo,
@@ -78,7 +86,7 @@ export function toOrderDetail(row: OrderRow, rules: PriceRuleInput[]) {
       ? { name: row.assignedTo.name, initials: row.assignedTo.initials, role: row.assignedTo.role }
       : null,
     warehouseNote: row.warehouseNote,
-    shippable: quantities(node).shippable,
+    shippable: qty.shippable,
     operations: [row, ...row.children].flatMap((o) =>
       o.operations.map((op) => ({
         orderNumber: o.number,

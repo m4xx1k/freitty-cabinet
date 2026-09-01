@@ -59,7 +59,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <li>⚙️ Settings</li>
         </ul>
         <div className="fc-sidebar-foot">
-          <button className="btn btn-primary" style={{ width: "100%" }}>
+          <button className="btn btn-primary block">
             + New Order
           </button>
         </div>

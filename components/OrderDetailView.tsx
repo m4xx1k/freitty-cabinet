@@ -401,11 +401,13 @@ export function OrderDetailView({ number }: { number: string }) {
                     <td className="num strong">{op.qty}</td>
                     <td>{UNIT_FULL[op.unitType] ?? op.unitType}</td>
                     <td className="soft">{formatDayTime(op.appliedAt)}</td>
-                    <td className="soft">
-                      💬 {op.commentCount} · 📷 {op.photoCount}
+                    <td className="soft docs">
+                      <span>
+                        💬 {op.commentCount} · 📷 {op.photoCount}
+                      </span>
                       {op.requiresPhoto && op.photoCount === 0 && (
                         <span className="badge badge-alert" title="This operation must be documented">
-                          missing
+                          missing photo
                         </span>
                       )}
                     </td>

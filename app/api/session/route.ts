@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { alertsFor, needAttention } from "@/lib/domain/alerts";
-import { loadAllNodes } from "@/lib/services/orders";
+import { loadAttentionNodes } from "@/lib/services/orders";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +18,10 @@ export async function GET() {
   const [company, user, nodes] = await Promise.all([
     prisma.company.findFirst({ select: { name: true, balanceCents: true } }),
     prisma.user.findFirst({ where: { role: "ADMIN" }, select: { name: true, initials: true, role: true } }),
-    loadAllNodes(),
+    loadAttentionNodes(),
   ]);
 
-  const attention = needAttention(nodes.map(({ node }) => ({ node, alerts: alertsFor(node) })));
+  const attention = needAttention(nodes.map((node) => ({ node, alerts: alertsFor(node) })));
 
   return NextResponse.json({ user, company, needAttention: attention.total });
 }

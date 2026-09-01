@@ -291,7 +291,7 @@ formula.**
 
 Done: **E0** scaffold deployed · **E1** schema, migrations, seed · **E2** domain
 + 17 tests · **E3** four REST routes + `/api/session` · **E4** shell and order
-list · **E5** dashboard · **E6** order detail.
+list · **E5** dashboard · **E6** order detail · **E7** polish.
 
 **E5**, in detail: three KPI tiles (the wide Need Attention one spans two slots
 and carries its own breakdown, as in the mockup), the four active orders, the two
@@ -316,16 +316,40 @@ Sub-order numbers are deliberately not links: only top-level orders have a page,
 and the 404 copy says where to find one. The prefetch 404s the cards used to
 throw are gone.
 
-Left:
+**E7**, in detail:
 
-- **E7 — polish**: mobile is broken (`scrollWidth` 713 at a 390 viewport — the
-  220px sidebar never collapses; the dashboard's own grids already fold to one
-  column at 900px, so the sidebar is the whole of what is left); dates render in the browser's timezone, so a
-  reviewer abroad sees shifted hours; `gate.sql` duplicates its alert condition
-  between `CASE` and `WHERE`; `/api/session` counts attention over the whole
-  database while the Alerts tab is scoped to 30 days, and it is a full deep query
-  on every page load; `toOrderDetail` computes `quantities` twice. Plus loading
-  and empty states, 404 page, and a half-page README.
+- **The sidebar stops being a column below 900px** and becomes a strip along the
+  top. It was a 220px track of the page grid, so on a phone it did not shrink —
+  it pushed the content out and the whole document scrolled sideways
+  (`scrollWidth` 713 at a 390 viewport). All three pages now measure 390 at 390.
+  Wide tables scroll inside their own panel; the page never does.
+- **Times render in a fixed zone, never the reader's.** A slot is an appointment
+  at a dock: 08:55 is when the truck was there. Left to the browser, a reviewer
+  opening the link from Europe read 12:55 for the same booking. `DISPLAY_TZ` in
+  `lib/format.ts` is UTC, which is the zone the seed's wall-clock times were
+  written in; in production it becomes the hub's own zone, a column the schema
+  does not have yet. Verified by rendering the same page under two browser
+  timezones and diffing.
+- **`gate.sql` states the alert rule once.** It was spelled out twice — in a
+  `CASE` and again in the `WHERE` — so the gate would have kept passing while the
+  two drifted apart, which is the one thing a gate exists to prevent. Both now
+  read columns from a `per_order` CTE.
+- **`/api/session` asks for what an alert can actually read** — declared
+  quantities, the log, and whether documented operations were — and leaves the
+  hub, dock, driver, staff, supplies and documents on the server. The shell calls
+  it on every page load. Its scope question resolved itself in E5: the badge, the
+  tile and the tab it links to now count the same set.
+- **`toOrderDetail` derives `quantities` once.** The card body moved into
+  `cardFrom(row, node, alerts, qty)`, which both entry points feed.
+- **The "missing photo" flag sits on its own line** in the operations table.
+  Inline, it stretched the Docs column and shoved the table sideways.
+- **README**, and a `.env.example` that is no longer swallowed by `.gitignore`.
+
+Not built, and never in scope: authentication and the `companyId` filter that
+comes with it, the create and edit flows behind `+ New Order` and `Edit`, CSV
+export, the billing screen, and uploading a photo or leaving a comment. Those
+buttons are in the mockup and are inert here on purpose — the brief is a
+read-side cabinet over a domain, and everything that reads is real.
 
 ## 10. Commands
 

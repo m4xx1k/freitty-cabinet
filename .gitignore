@@ -44,3 +44,10 @@ next-env.d.ts
 
 # prisma generated client
 /lib/generated
+
+# agent scaffolding (prisma init + omc session state) — regenerated, never committed
+/.agents
+/.claude
+/.windsurf
+/skills-lock.json
+/.omc

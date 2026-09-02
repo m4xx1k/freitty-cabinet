@@ -148,7 +148,7 @@ export function OrdersView() {
         )}
       </div>
 
-      {error && <div className="empty">Could not load orders ({error}). Reload the page to try again.</div>}
+      {error && <div className="empty">Could not load orders ({error}).</div>}
 
       {loading && !data && (
         <div className="cards-grid">
@@ -159,7 +159,7 @@ export function OrdersView() {
       )}
 
       {data && data.orders.length === 0 && !loading && (
-        <div className="empty">No orders match these filters. Try a wider date range.</div>
+        <div className="empty">No orders match these filters.</div>
       )}
 
       {data && data.orders.length > 0 && (

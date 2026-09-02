@@ -10,10 +10,9 @@ export default function NotFound() {
         <Link href="/">Home</Link> <span>›</span> Not found
       </div>
       <div className="fc-page-title">
-        <h1>This page does not exist</h1>
+        <h1>Page not found</h1>
       </div>
       <div className="empty">
-        Nothing lives at this address.{" "}
         <Link href="/orders" className="lnk">
           Open the order list →
         </Link>

@@ -143,9 +143,7 @@ export function DashboardView() {
       </div>
 
       {error && (
-        <div className="empty">
-          Could not load the dashboard ({error}). Reload the page to try again.
-        </div>
+        <div className="empty">Could not load the dashboard ({error}).</div>
       )}
 
       {!data && !error && <Skeletons />}

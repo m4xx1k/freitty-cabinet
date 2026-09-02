@@ -141,14 +141,13 @@ export function OrderDetailView({ number }: { number: string }) {
         <div className="empty">
           {failure.status === 404 ? (
             <>
-              No order numbered <strong>{number}</strong>. It may have been a sub-order — those live
-              inside their parent.{" "}
+              No order numbered <strong>{number}</strong>.{" "}
               <Link href={`/orders?q=${encodeURIComponent(number)}&period=all`} className="lnk">
                 Search for it →
               </Link>
             </>
           ) : (
-            <>Could not load this order ({failure.message}). Reload the page to try again.</>
+            <>Could not load this order ({failure.message}).</>
           )}
         </div>
       </div>
@@ -327,9 +326,6 @@ export function OrderDetailView({ number }: { number: string }) {
         <div className="panel table-panel">
           <div className="panel-bar">
             <strong>Sub-orders</strong>
-            <span className="hint">
-              Ref N lives on the leaf; the parent carries no cargo of its own
-            </span>
           </div>
           <table className="grid">
             <thead>
@@ -367,7 +363,6 @@ export function OrderDetailView({ number }: { number: string }) {
       <div className="panel table-panel">
         <div className="panel-bar">
           <strong>Operations</strong>
-          <span className="hint">the warehouse log — every figure above comes from here</span>
         </div>
         {detail.operations.length === 0 ? (
           <div className="empty flat">Nothing has happened to this order yet.</div>
@@ -423,9 +418,6 @@ export function OrderDetailView({ number }: { number: string }) {
       <div className="panel table-panel">
         <div className="panel-bar">
           <strong>Supplies</strong>
-          <span className="hint">
-            consumables sold with the job · the price is copied onto the line when it is added
-          </span>
         </div>
         {detail.supplies.length === 0 ? (
           <div className="empty flat">No consumables on this order.</div>
@@ -481,9 +473,7 @@ export function OrderDetailView({ number }: { number: string }) {
           <span className="k">Order total</span>
           <span className="v">{formatMoney(detail.totals.grandCents)}</span>
         </div>
-        <div className="note">
-          Platform price. What the partner is paid is not in this response.
-        </div>
+        <div className="note">Platform price</div>
       </div>
 
       {detail.documents.length > 0 && (

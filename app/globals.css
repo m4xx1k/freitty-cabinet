@@ -1111,10 +1111,6 @@ details.ref-n-multi .sub-desc em {
 .panel-bar strong {
   color: var(--ink);
 }
-.panel-bar .hint {
-  font-size: 11px;
-  color: var(--ink-soft);
-}
 table.grid {
   width: 100%;
   border-collapse: collapse;

@@ -42,9 +42,10 @@ sold to the client. *Alert* — a computed flag, not a status.
 
 ---
 
-## 2. The four things the mockup is testing
+## 2. Four things the mockup gets right
 
-These are deliberate. Naming them out loud is half the interview.
+Each of these is a deliberate constraint, and each one has a wrong version that
+looks reasonable until it costs you a rewrite.
 
 1. **`Ref N` lives on the leaf, not on the order.** The card says "3 refs" —
    that is an aggregate over three sub-orders, not a field. In a cross-dock the
@@ -93,8 +94,7 @@ from the log: the first `UNLOADING` means `ON_STOCK`, the last `LOADING` means
 
 ## 4. Where every number on screen comes from
 
-**The central claim: no figure on any screen is stored in a column.** This is the
-first thing to say at the demo.
+**The central claim: no figure on any screen is stored in a column.**
 
 | Figure | Formula |
 |---|---|
@@ -222,14 +222,12 @@ produce the same twelve rectangles. `components/Charts.tsx` takes
 `{ key, value, title }[]` and knows nothing about orders or money — the caller
 formats the hover text, so the chart never learns what a cent is.
 
-**The layering, said in Nest terms** — this is the prepared answer for "why not
-NestJS": the zod schema at the edge of a route is a **Pipe**; the serialiser in
+**The layering, said in Nest terms.** Why there is no NestJS here: the zod schema at the edge of a route is a **Pipe**; the serialiser in
 `lib/dto` that keeps `partnerCents` out is an **Interceptor**; a `companyId`
 check before touching an order is a **Guard**. In Nest those are decorators, here
 they are functions at the route boundary. If this grew, that layer is what moves
-first, and it moves as-is. On a one-day task a second deployment costs more than
-it returns — especially since the brief says the source code is not submitted and
-only the deployed app and the presentation are assessed.
+first, and it moves as-is. At this size a second service and a second deployment
+cost more than they return.
 
 ---
 
@@ -263,9 +261,8 @@ and the resolution matters more than the arithmetic:
 
 **One rule resolves all of it:** sub-order lines and the operation log are taken
 from the mockup verbatim; every aggregate above them is computed. So FR001676
-shows `15 × Std + 12 × XL` and FR001668 shows `55 × Std`. That is not a mismatch
-to apologise for — it is the demonstration: in the mockup the totals are drawn by
-hand, in the app they are derived.
+shows `15 × Std + 12 × XL` and FR001668 shows `55 × Std`. The difference is the
+point: in the mockup the totals are drawn by hand, in the app they are derived.
 
 One exception: **FR001674**, where the declared/actual pair *is* the alert story.
 Its magnitude is preserved (Δ −2) rather than its absolute numbers: children
@@ -371,29 +368,23 @@ the public TCP proxy in `.env`. Two traps already paid for: a route with
 (keep DB-touching routes `force-dynamic`), and Prisma 7 requires a driver adapter
 — `new PrismaClient()` with no arguments does not compile.
 
-## 11. Three minutes of demo
+## 11. Reading the system in three minutes
 
-1. *"The order is recursive. A consolidation is the same order with children, and
-   Ref N lives on the leaf and aggregates upwards."* → FR001676, the ref list on
-   the card and then the sub-orders table on `/orders/FR001676`, whose legs add
+Five paths through the app, each one landing on a decision from section 2.
+
+1. **The order is recursive.** A consolidation is the same entity with children,
+   and `Ref N` lives on the leaf and aggregates upwards. → FR001676: the ref list
+   on the card, then the sub-orders table on `/orders/FR001676`, whose legs add
    up to the parent's row.
-2. *"Quantity and money are not stored, they come out of the operation log. Here
-   is the delta, and here is where it came from."* → `/orders/FR001383`, the
-   reconciliation strip under the operations table. Actual is what came off the
-   truck, shippable is what leaves.
-3. *"An alert is a rule, not a status. Three rules, and Need Attention is built
-   from them."* → the tile, then click through to the filtered list.
-4. *"Prices are masked as $1 in the mockup, so the tariff is two-layered:
-   platform for the client, partner hidden — the API does not return it at all."*
-   → open `/api/orders/FR001383`, the field simply is not there.
-5. *"The backend is real REST routes and the frontend consumes them with fetch."*
-   → open `/api/dashboard` in the next tab.
-6. *"No Nest here on purpose: on a one-day task a second deployment costs more
-   than it returns, and the code is not even submitted. The layers are the same —
-   zod instead of a Pipe, a serialiser instead of an Interceptor, a company check
-   instead of a Guard. If it grows, that layer moves first."*
-
-If the mockup's arithmetic comes up, the answer is section 8: the totals in the
-wireframe were drawn by hand and do not reconcile, so the seed takes the leaves
-as truth and derives everything above them — which is exactly what the app does
-at runtime.
+2. **Quantity and money come out of the operation log.** → `/orders/FR001383`,
+   the reconciliation strip under the operations table. Actual is what came off
+   the truck, shippable is what leaves after damage, and the delta is measured
+   against the document.
+3. **An alert is a rule, not a status.** Three rules, and Need Attention is built
+   from them. → the tile, then through to the list behind it, which shares its
+   predicate.
+4. **Price is two-layered.** Platform for the client, partner hidden. → open
+   `/api/orders/FR001383`: the field is not there, and no query behind the route
+   selects it.
+5. **The frontend consumes real REST routes.** → `/api/dashboard` is the whole
+   dashboard as JSON.

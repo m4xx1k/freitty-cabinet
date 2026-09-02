@@ -5,15 +5,15 @@ somebody else's freight*. A truck arrives at a hub, is parked at a dock, pallets
 come off, something is done to them, and they go out on another truck. The money
 is charged for the operations, not for distance.
 
-**Live:** https://web-production-99d64.up.railway.app
+**Live:** https://freitty-cabinet.up.railway.app
 
 | | |
 |---|---|
-| [`/`](https://web-production-99d64.up.railway.app/) | dashboard — KPIs, activity charts, the orders that need you |
-| [`/orders`](https://web-production-99d64.up.railway.app/orders) | the list, filtered through the URL |
-| [`/orders/FR001383`](https://web-production-99d64.up.railway.app/orders/FR001383) | a cross-dock in full, with the operations log the numbers come from |
-| [`/orders/FR001676`](https://web-production-99d64.up.railway.app/orders/FR001676) | a consolidation, three legs adding up to the parent |
-| [`/api/dashboard`](https://web-production-99d64.up.railway.app/api/dashboard) | the JSON behind the dashboard |
+| [`/`](https://freitty-cabinet.up.railway.app/) | dashboard — KPIs, activity charts, the orders that need you |
+| [`/orders`](https://freitty-cabinet.up.railway.app/orders) | the list, filtered through the URL |
+| [`/orders/FR001383`](https://freitty-cabinet.up.railway.app/orders/FR001383) | a cross-dock in full, with the operations log the numbers come from |
+| [`/orders/FR001676`](https://freitty-cabinet.up.railway.app/orders/FR001676) | a consolidation, three legs adding up to the parent |
+| [`/api/dashboard`](https://freitty-cabinet.up.railway.app/api/dashboard) | the JSON behind the dashboard |
 
 ## The one idea
 

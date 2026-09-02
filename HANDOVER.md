@@ -3,10 +3,10 @@
 Everything needed to pick this up cold: what the business is, which rules the
 code enforces, where each piece lives, what is done and what is not.
 
-**Live:** https://web-production-99d64.up.railway.app
-· [`/orders`](https://web-production-99d64.up.railway.app/orders)
-· [`/api/orders/FR001383`](https://web-production-99d64.up.railway.app/api/orders/FR001383)
-· [`/api/dashboard`](https://web-production-99d64.up.railway.app/api/dashboard)
+**Live:** https://freitty-cabinet.up.railway.app
+· [`/orders`](https://freitty-cabinet.up.railway.app/orders)
+· [`/api/orders/FR001383`](https://freitty-cabinet.up.railway.app/api/orders/FR001383)
+· [`/api/dashboard`](https://freitty-cabinet.up.railway.app/api/dashboard)
 
 ---
 

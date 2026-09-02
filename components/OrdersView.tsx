@@ -85,8 +85,15 @@ export function OrdersView() {
       <div className="fc-page-title">
         <h1>All Orders</h1>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <button className="btn btn-secondary">📥 Export CSV</button>
-          <button className="btn btn-primary">+ New Order</button>
+          {/* Creation and export are out of scope: this is the read side of the
+              cabinet. Disabled rather than inert, so the boundary reads as a
+              decision and not as a button that quietly does nothing. */}
+          <button className="btn btn-secondary" disabled title="Out of scope — this build is the read side">
+            📥 Export CSV
+          </button>
+          <button className="btn btn-primary" disabled title="Out of scope — this build is the read side">
+            + New Order
+          </button>
         </div>
       </div>
 

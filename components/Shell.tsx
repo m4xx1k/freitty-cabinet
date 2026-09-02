@@ -59,7 +59,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <li>⚙️ Settings</li>
         </ul>
         <div className="fc-sidebar-foot">
-          <button className="btn btn-primary block">
+          <button className="btn btn-primary block" disabled title="Out of scope — this build is the read side">
             + New Order
           </button>
         </div>
